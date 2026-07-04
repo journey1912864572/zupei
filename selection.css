@@ -81,6 +81,27 @@
   text-align: center;
 }
 
+.paper-name-field {
+  max-width: 680px;
+  margin: 24px auto 0;
+}
+
+.paper-name-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 800;
+}
+
+.paper-name-field input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+
 .paper-grid .choice-card p {
   line-height: 1.6;
 }

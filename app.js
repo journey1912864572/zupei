@@ -92,8 +92,8 @@ function renderTypeChapters() {
   if (!selectedTypes.length) { location.hash = "types"; return; }
   const eligible = questions.filter(q => selectedTypes.includes(q.type));
   const chapters = unique(eligible.map(q => q.chapter));
-  app.innerHTML = `${pageHeader("选择章节", `第二步：已选择 ${selectedTypes.length} 种题型，可多选章节`, "#types")}<section class="choice-grid selectable-grid">${chapters.map((chapter, index) => `<button class="choice-card selectable-card" data-value="${escapeHtml(chapter)}"><span class="choice-number">${String(index + 1).padStart(2,"0")}</span><div><h2>${escapeHtml(chapter)}</h2><p>${eligible.filter(q => q.chapter === chapter).length} 道符合题型的题目</p></div><span class="select-mark">✓</span></button>`).join("")}</section><div class="selection-bar"><span id="selection-count">请选择章节</span><button id="selection-next" class="primary" disabled>建立自主组卷</button></div>`;
-  setupSelection(selected => createPaper(selectedTypes, selected), "个章节");
+  app.innerHTML = `${pageHeader("选择章节", `第二步：已选择 ${selectedTypes.length} 种题型，可多选章节`, "#types")}<section class="choice-grid selectable-grid">${chapters.map((chapter, index) => `<button class="choice-card selectable-card" data-value="${escapeHtml(chapter)}"><span class="choice-number">${String(index + 1).padStart(2,"0")}</span><div><h2>${escapeHtml(chapter)}</h2><p>${eligible.filter(q => q.chapter === chapter).length} 道符合题型的题目</p></div><span class="select-mark">✓</span></button>`).join("")}</section><div class="paper-name-field"><label for="paper-name">试卷名称（可选）</label><input id="paper-name" type="text" maxlength="30" placeholder="自主组卷 ${state.nextPaperNumber}"></div><div class="selection-bar"><span id="selection-count">请选择章节</span><button id="selection-next" class="primary" disabled>建立自主组卷</button></div>`;
+  setupSelection(selected => createPaper(selectedTypes, selected, document.querySelector("#paper-name").value), "个章节");
 }
 function setupSelection(onNext, unit) {
   const selected = [];
@@ -111,11 +111,12 @@ function setupSelection(onNext, unit) {
   };
   next.onclick = () => onNext(selected);
 }
-function createPaper(types, chapters) {
+function createPaper(types, chapters, customName = "") {
   const paperQuestions = questions.filter(q => types.includes(q.type) && chapters.includes(q.chapter));
   if (!paperQuestions.length) { toast("没有符合条件的题目"); return; }
   const number = state.nextPaperNumber++;
-  state.customPapers.push({ id: `paper-${Date.now()}`, name: `自主组卷 ${number}`, types, chapters, questionIds: paperQuestions.map(q => q.id), createdAt: new Date().toISOString() });
+  const name = customName.trim() || `自主组卷 ${number}`;
+  state.customPapers.push({ id: `paper-${Date.now()}`, name, types, chapters, questionIds: paperQuestions.map(q => q.id), createdAt: new Date().toISOString() });
   persist();
   location.hash = "papers";
 }
