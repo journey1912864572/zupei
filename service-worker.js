@@ -1,5 +1,5 @@
-const CACHE = "histology-quiz-v3";
-const SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./assets/icon.svg", "./data/questions.json"];
+const CACHE = "histology-quiz-v4";
+const SHELL = ["./", "./index.html", "./styles.css", "./selection.css", "./app.js", "./manifest.webmanifest", "./assets/icon.svg", "./data/questions.json"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))));
 self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))));
 self.addEventListener("fetch", event => {
