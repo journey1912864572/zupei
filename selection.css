@@ -133,6 +133,7 @@
 }
 
 @media (max-width: 600px) {
+  .bottom-nav { grid-template-columns: repeat(5, 1fr); }
   .sync-status { padding: 7px 9px; font-size: 11px; }
   .sync-panel { margin: 20px auto; padding: 38px 18px; }
   .sync-panel > div { flex-direction: column; }
