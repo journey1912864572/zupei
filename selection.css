@@ -85,11 +85,57 @@
   line-height: 1.6;
 }
 
+.sync-status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 13px;
+  background: var(--card);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sync-status.connected {
+  border-color: #a9c6bd;
+  color: var(--good);
+}
+
+.sync-panel {
+  max-width: 620px;
+  margin: 40px auto;
+  padding: 48px 32px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.sync-cloud {
+  display: block;
+  color: var(--green2);
+  font-size: 64px;
+}
+
+.sync-panel h2 { margin: 8px 0; }
+.sync-help { color: var(--muted); line-height: 1.7; }
+.sync-panel form { max-width: 420px; margin: 28px auto 0; text-align: left; }
+.sync-panel label { display: block; margin-bottom: 8px; font-weight: 800; }
+.sync-panel input { width: 100%; margin-bottom: 12px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: white; color: var(--ink); font: inherit; }
+.sync-panel form .primary { width: 100%; }
+.sync-panel button:disabled { opacity: .55; cursor: not-allowed; }
+.sync-panel > div { display: flex; justify-content: center; gap: 10px; margin-top: 24px; }
+.sync-message { min-height: 24px; color: var(--green2); }
+
 @media (max-width: 960px) {
   .mode-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
+  .sync-status { padding: 7px 9px; font-size: 11px; }
+  .sync-panel { margin: 20px auto; padding: 38px 18px; }
+  .sync-panel > div { flex-direction: column; }
   .selection-bar {
     bottom: 76px;
     align-items: stretch;

@@ -1,15 +1,28 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const SUPABASE_URL = "https://zlpsaicdkdnhartlzqup.supabase.co";
+const SUPABASE_KEY = "sb_publishable_VFnD8ez26UsvvmywAaZwpQ_4nhgNvLV";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true } });
 const app = document.querySelector("#app");
 const toastNode = document.querySelector("#toast");
+const syncStatus = document.querySelector("#sync-status");
 let questions = [];
 let session = null;
 let state = loadState();
+let currentUser = null;
+let syncTimer = null;
+let syncBusy = false;
 
 function loadState() {
   try {
     return { wrongIds: [], answered: 0, correct: 0, customPapers: [], nextPaperNumber: 1, ...JSON.parse(localStorage.getItem("histology-progress") || "{}") };
   } catch { return { wrongIds: [], answered: 0, correct: 0, customPapers: [], nextPaperNumber: 1 }; }
 }
-function persist() { localStorage.setItem("histology-progress", JSON.stringify(state)); }
+function persist() {
+  state.updatedAt = new Date().toISOString();
+  localStorage.setItem("histology-progress", JSON.stringify(state));
+  scheduleCloudSave();
+}
 function unique(values) { return [...new Set(values)]; }
 function escapeHtml(value = "") { return value.replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
 function route() { return location.hash.slice(1).split("?")[0] || "home"; }
@@ -22,7 +35,10 @@ async function init() {
     return response.json();
   });
   window.addEventListener("hashchange", render);
+  window.addEventListener("focus", () => { if (currentUser) syncFromCloud(); });
+  syncStatus.addEventListener("click", () => { location.hash = "sync"; });
   if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("service-worker.js");
+  await initSync();
   render();
 }
 
@@ -34,6 +50,7 @@ function render() {
   else if (current === "types") renderTypes();
   else if (current === "type-chapters") renderTypeChapters();
   else if (current === "papers") renderPapers();
+  else if (current === "sync") renderSync();
   else if (current === "wrong") renderWrong();
   else if (current === "quiz") startQuiz();
   else location.hash = "home";
@@ -166,6 +183,96 @@ function showResult() {
   const rate = Math.round(session.right / session.pool.length * 100);
   const repeatLink = session.wrongMode ? "#quiz?wrong=1" : session.paperId ? `#quiz?paper=${encodeURIComponent(session.paperId)}` : "#chapters";
   app.innerHTML = `<section class="result"><span>${rate >= 80 ? "✓" : "↻"}</span><h1>本轮练习完成</h1><p>答对 ${session.right} / ${session.pool.length} 题，正确率 ${rate}%</p><div><a class="secondary" href="${session.paperId ? "#papers" : "#home"}">${session.paperId ? "返回组卷" : "返回首页"}</a><a class="primary" href="${repeatLink}">${session.wrongMode || session.paperId ? "再练一次" : "继续练习"}</a></div></section>`;
+}
+
+async function initSync() {
+  const { data } = await supabase.auth.getSession();
+  currentUser = data.session?.user || null;
+  updateSyncStatus();
+  if (currentUser) await syncFromCloud();
+  supabase.auth.onAuthStateChange((event, authSession) => {
+    currentUser = authSession?.user || null;
+    updateSyncStatus();
+    if (event === "SIGNED_IN" && currentUser) setTimeout(syncFromCloud, 0);
+  });
+}
+function updateSyncStatus(text) {
+  syncStatus.textContent = text || (currentUser ? "☁ 已同步" : "☁ 登录同步");
+  syncStatus.classList.toggle("connected", Boolean(currentUser));
+}
+function renderSync() {
+  if (currentUser) {
+    app.innerHTML = `${pageHeader("三端同步", "手机、平板和电脑使用同一邮箱登录")}<section class="sync-panel"><span class="sync-cloud">☁</span><h2>同步已开启</h2><p>${escapeHtml(currentUser.email || "当前账号")}</p><p class="sync-help">错题、累计统计和自主组卷会自动保存到云端。</p><div><button id="sync-now" class="primary">立即同步</button><button id="sign-out" class="secondary">退出登录</button></div></section>`;
+    document.querySelector("#sync-now").onclick = async () => { await syncFromCloud(); toast("同步完成"); };
+    document.querySelector("#sign-out").onclick = async () => { await supabase.auth.signOut(); location.hash = "home"; };
+    return;
+  }
+  app.innerHTML = `${pageHeader("三端同步", "手机、平板和电脑使用同一邮箱登录")}<section class="sync-panel"><span class="sync-cloud">☁</span><h2>登录并同步学习记录</h2><p class="sync-help">输入邮箱后，我们会发送一个登录链接，无需设置密码。</p><form id="sync-form"><label for="sync-email">邮箱地址</label><input id="sync-email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required><button class="primary" type="submit">发送登录邮件</button></form><p id="sync-message" class="sync-message"></p></section>`;
+  document.querySelector("#sync-form").onsubmit = sendLoginEmail;
+}
+async function sendLoginEmail(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector("button");
+  const message = document.querySelector("#sync-message");
+  button.disabled = true;
+  button.textContent = "正在发送…";
+  const email = form.email.value.trim();
+  const redirectTo = `${location.origin}${location.pathname}`;
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+  if (error) {
+    message.textContent = `发送失败：${error.message}`;
+    button.disabled = false;
+    button.textContent = "重新发送";
+  } else {
+    message.textContent = "登录邮件已发送，请在邮箱中点击链接。";
+    button.textContent = "邮件已发送";
+  }
+}
+function scheduleCloudSave() {
+  if (!currentUser) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushCloudState, 500);
+}
+async function pushCloudState() {
+  if (!currentUser) return;
+  if (syncBusy) { scheduleCloudSave(); return; }
+  syncBusy = true;
+  updateSyncStatus("☁ 同步中…");
+  const { error } = await supabase.from("user_progress").upsert({ user_id: currentUser.id, progress: state, updated_at: state.updatedAt || new Date().toISOString() });
+  syncBusy = false;
+  updateSyncStatus(error ? "☁ 同步失败" : undefined);
+  if (error) console.error("云同步失败", error);
+}
+async function syncFromCloud() {
+  if (!currentUser || syncBusy) return;
+  syncBusy = true;
+  updateSyncStatus("☁ 同步中…");
+  const { data, error } = await supabase.from("user_progress").select("progress,updated_at").eq("user_id", currentUser.id).maybeSingle();
+  if (error) {
+    console.error("云同步失败", error);
+    syncBusy = false;
+    updateSyncStatus("☁ 同步失败");
+    return;
+  }
+  if (!data) {
+    syncBusy = false;
+    await pushCloudState();
+    return;
+  }
+  const cloudTime = new Date(data.updated_at || data.progress?.updatedAt || 0).getTime();
+  const localTime = new Date(state.updatedAt || 0).getTime();
+  if (cloudTime > localTime) {
+    state = { wrongIds: [], answered: 0, correct: 0, customPapers: [], nextPaperNumber: 1, ...data.progress };
+    localStorage.setItem("histology-progress", JSON.stringify(state));
+    if (route() !== "quiz") render();
+  } else if (localTime > cloudTime) {
+    syncBusy = false;
+    await pushCloudState();
+    return;
+  }
+  syncBusy = false;
+  updateSyncStatus();
 }
 
 init().catch(error => {
