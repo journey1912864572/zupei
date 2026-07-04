@@ -51,8 +51,8 @@ function renderHome() {
   </section>`;
 }
 
-function pageHeader(title, description) {
-  return `<div class="page-head"><a class="back" href="#home">←</a><div><h1>${title}</h1><p>${description}</p></div></div>`;
+function pageHeader(title, description, back = "#home") {
+  return `<div class="page-head"><a class="back" href="${back}">←</a><div><h1>${title}</h1><p>${description}</p></div></div>`;
 }
 function renderChapters() {
   const chapters = unique(questions.map(q => q.chapter));
@@ -62,9 +62,22 @@ function renderChapters() {
   }).join("")}</section>`;
 }
 function renderTypes() {
+  const chapter = params().get("chapter");
+  if (!chapter) {
+    const chapters = unique(questions.map(q => q.chapter));
+    app.innerHTML = `${pageHeader("题型练习", "先选择要练习的章节")}<section class="choice-grid">
+      <a class="choice-card" href="#types?chapter=${encodeURIComponent("全部章节")}"><span class="choice-number">ALL</span><div><h2>全部章节</h2><p>${questions.length} 道题</p></div><span class="arrow">→</span></a>
+      ${chapters.map((name, index) => {
+        const count = questions.filter(q => q.chapter === name).length;
+        return `<a class="choice-card" href="#types?chapter=${encodeURIComponent(name)}"><span class="choice-number">${String(index + 1).padStart(2,"0")}</span><div><h2>${escapeHtml(name)}</h2><p>${count} 道题</p></div><span class="arrow">→</span></a>`;
+      }).join("")}</section>`;
+    return;
+  }
   const descriptions = {"单选题":"每题只有一个正确答案","多选题":"每题有两个或以上正确答案","判断题":"判断表述是否正确","B型题":"使用共用备选答案作答"};
-  const types = unique(questions.map(q => q.type));
-  app.innerHTML = `${pageHeader("题型练习", "选择一种题型集中训练")}<section class="type-grid">${types.map(type => `<a class="type-card" href="#quiz?type=${encodeURIComponent(type)}"><span class="type-symbol">${type[0]}</span><h2>${type}</h2><p>${descriptions[type]}</p><strong>${questions.filter(q=>q.type===type).length} 题 →</strong></a>`).join("")}</section>`;
+  const chapterQuestions = chapter === "全部章节" ? questions : questions.filter(q => q.chapter === chapter);
+  const types = unique(chapterQuestions.map(q => q.type));
+  const chapterQuery = chapter === "全部章节" ? "" : `&chapter=${encodeURIComponent(chapter)}`;
+  app.innerHTML = `${pageHeader("选择题型", chapter === "全部章节" ? "全部章节" : escapeHtml(chapter), "#types")}<section class="type-grid">${types.map(type => `<a class="type-card" href="#quiz?type=${encodeURIComponent(type)}${chapterQuery}"><span class="type-symbol">${type[0]}</span><h2>${type}</h2><p>${descriptions[type]}</p><strong>${chapterQuestions.filter(q=>q.type===type).length} 题 →</strong></a>`).join("")}</section>`;
 }
 function renderWrong() {
   const count = questions.filter(q => state.wrongIds.includes(q.id)).length;
