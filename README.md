@@ -12,7 +12,9 @@ python start_server.py
 
 ## 部署
 
-项目可直接部署到 GitHub Pages，无需构建步骤。
+推送到 `main` 分支后，GitHub Actions 会自动将网站部署到 GitHub Pages，无需构建步骤。
+
+网站地址：https://journey1912864572.github.io/zupei/
 
 ## 更新题库
 
