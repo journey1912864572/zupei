@@ -1,4 +1,4 @@
-const CACHE = "histology-quiz-v7";
+const CACHE = "histology-quiz-v8";
 const SHELL = ["./", "./index.html", "./styles.css", "./selection.css", "./app.js", "./manifest.webmanifest", "./assets/icon.svg", "./data/questions.json"];
 self.addEventListener("install", event => event.waitUntil(
   caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())
